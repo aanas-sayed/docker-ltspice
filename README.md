@@ -20,7 +20,7 @@ docker pull aanas0sayed/docker-ltspice
 docker run -it --rm aanas0sayed/docker-ltspice
 ```
 
-> [!NOTE]
+> [!IMPORTANT]
 >
 > The base image is `linux/amd64` and will not work on a machine running with a `arm64` architecture unless `--platform linux/amd64` is added to the `docker run` command.
 
@@ -36,7 +36,7 @@ docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0s
 
 #### GUI on Mac
 
-1. Install XQuartz:
+1. Install [XQuartz](https://www.xquartz.org):
 
     ```bash
     brew install --cask xquartz
@@ -44,7 +44,7 @@ docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0s
 
 2. Logout and login of your Mac to activate XQuartz as the default X11 server.
 
-3. Start XQuartz:
+3. Start [XQuartz](https://www.xquartz.org):
 
     ```bash
     open -a XQuartz
@@ -70,6 +70,8 @@ docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0s
 
 For MacBook M series (ARM chip), add `--platform linux/amd64` to the command.
 
+For support on this topic, please check the guide on [X11 forwarding on macOS and docker](https://gist.github.com/sorny/969fe55d85c9b0035b0109a31cbcb088) 
+
 ### Running as Current User
 
 ```bash
@@ -92,7 +94,7 @@ This command runs the container with the same username, UID, GID, and home path 
     docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) aanas0sayed/docker-ltspice
     ```
 
-For more options and detailed usage instructions, refer to the [scottyhardy/docker-wine README](https://github.com/scottyhardy/docker-wine/blob/master/README.md).
+For more options and detailed usage instructions on the base image, refer to the [scottyhardy/docker-wine](https://github.com/scottyhardy/docker-wine/blob/master/).
 
 ## Troubleshooting
 
@@ -115,5 +117,3 @@ If you find any issues or have suggestions for improvements, please contribute b
 ## License
 
 This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
-
-For more information on the scottyhardy/docker-wine project, please visit [scottyhardy/docker-wine](https://github.com/scottyhardy/docker-wine).
