@@ -1,8 +1,18 @@
 # docker-ltspice
 
-This Docker image provides an environment for running LTspice, a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
+<!-- badges: start -->
+
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+<!-- badges: end -->
+
+This Docker image provides an environment for running [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html), a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
 
 `aanas0sayed/docker-ltspice` is aimed for running LTspice in a headless environment which can be beneficial for bulk simulations as part of pipelines. The GUI is also supported for easy debugging.
+
+## Pre-built images
+
+Images are available on [DockerHub](https://hub.docker.com/r/aanas0sayed/docker-ltspice).
 
 ## Usage
 
@@ -116,4 +126,4 @@ If you find any issues or have suggestions for improvements, please contribute b
 
 ## License
 
-This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
+This project is licensed under the [MIT License](https://opensource.org/license/MIT). For more details, please refer to the LICENSE file.
