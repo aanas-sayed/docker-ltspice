@@ -1,0 +1,38 @@
+name: Test LTspice Docker Image
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build Docker image
+        run: |
+          docker build --platform linux/amd64 -t ltspice-test .
+
+      - name: Run LTspice simulation
+        run: |
+          docker run --platform linux/amd64 --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v ${{ github.workspace }}:/workspace ltspice-test -c "wine /root/.wine/drive_c/Program\ Files/ADI/LTspice/LTspice.exe -wine -Run -b /workspace/test/circuit.asc && ls -a && ls /workspace -a && ls /workspace/test -a"
+
+      # - name: Check LTspice log
+      #   run: |
+      #     cat /workspace/test.log
+      #     grep -q 'AVG(v(n001))=10' /workspace/test.log
