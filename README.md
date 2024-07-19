@@ -1,37 +1,78 @@
 # docker-ltspice
 
-This Docker image provides an environment for running LTspice, a popular electronic circuit simulation software, using Wine. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
+This Docker image provides an environment for running LTspice, a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
+
+`aanas0sayed/docker-ltspice` is aimed for running LTspice in a headless environment which can be beneficial for bulk simulations as part of pipelines. The GUI is also supported for easy debugging.
 
 ## Usage
 
-To use the aanas0sayed/docker-ltspice Docker image, you can follow these steps:
+### Pull the Image
 
-1. Pull the latest version of the image from Docker Hub:
-
-    ```
-    docker pull aanas0sayed/docker-ltspice
-    ```
-
-2. Start the Docker container:
-
-    ```
-    docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
-    ```
-    This command will start the container in interactive mode, forwarding the X11 display to the host machine. This allows LTspice to display its graphical interface on your local machine.
-
-3. Inside the container, you can run LTspice by executing the ltspice command:
-
-    ```
-    ltspice
-    ```
-    
-    This will start LTspice and you can use it as you would on a regular desktop environment.
-
-## Running as the current user
-
-By default, the Docker container runs as the root user. However, you can start the container as yourself by passing the --user option with your user ID (UID) and group ID (GID) to the docker run command. This is especially useful when binding to the local file system:
-
+```bash
+docker pull aanas0sayed/docker-ltspice
 ```
+
+### Running the Container
+
+#### Interactive Mode on any platform 
+
+```bash
+docker run -it --rm aanas0sayed/docker-ltspice
+```
+
+> [!NOTE]
+>
+> The base image is `linux/amd64` and will not work on a machine running with a `arm64` architecture unless `--platform linux/amd64` is added to the `docker run` command.
+
+```bash
+docker run -it --rm aanas0sayed/docker-ltspice
+```
+
+#### GUI on Linux/Windows
+
+```bash
+docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
+```
+
+#### GUI on Mac
+
+1. Install XQuartz:
+
+    ```bash
+    brew install --cask xquartz
+    ```
+
+2. Logout and login of your Mac to activate XQuartz as the default X11 server.
+
+3. Start XQuartz:
+
+    ```bash
+    open -a XQuartz
+    ```
+
+4. Enable "Allow connections from network clients" in Security Settings.
+5. Restart your Mac and start XQuartz again:
+
+    ```bash
+    open -a XQuartz
+    ```
+
+> [!NOTE]
+>
+> If connecting to a remote server, the access control will need to be modified. Running `xhost +` allows any client to connect (not recommended). If you have security concerns you can append an IP address for a whitelist mechanism. Alternatively, if you want to limit X11 forwarding to local containers, you can limit clients to localhost only via `xhost +localhost`
+> This is not a persistent setting.
+
+6. Run the container:
+
+    ```bash
+    docker run -it --rm -e DISPLAY=docker.for.mac.host.internal:0 -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
+    ```
+
+For MacBook M series (ARM chip), add `--platform linux/amd64` to the command.
+
+### Running as Current User
+
+```bash
 docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --user=$(id -u):$(id -g) aanas0sayed/docker-ltspice
 ```
 
@@ -39,46 +80,40 @@ This command runs the container with the same username, UID, GID, and home path 
 
 ## Additional Options
 
-You can use additional options to customize the behavior of the container. Here are some examples:
+- Run with RDP server enabled (as root):
 
-- To run LTspice as root with RDP server enabled:
-
-    ```
+    ```bash
     docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 aanas0sayed/docker-ltspice
     ```
 
-- To run LTspice as the current user with RDP server enabled:
+- Run with RDP server enabled (as current user):
 
-    ```
+    ```bash
     docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) aanas0sayed/docker-ltspice
     ```
-    
-    For more options and detailed usage instructions, refer to the scottyhardy/docker-wine project's README file: https://github.com/scottyhardy/docker-wine/blob/master/README.md
+
+For more options and detailed usage instructions, refer to the [scottyhardy/docker-wine README](https://github.com/scottyhardy/docker-wine/blob/master/README.md).
 
 ## Troubleshooting
 
-If you encounter any issues while running LTspice in the Docker container, you can try the following troubleshooting steps:
+- Test the display:
 
-- Test the display by running Notepad:
-
-    ```
+    ```bash
     ltspice wine notepad
     ```
 
-- Test the sound by using pacat:
+- Test the sound:
 
-    ```
+    ```bash
     ltspice pacat -vv /dev/urandom
     ```
 
-These commands will help verify that the display and sound configurations are working correctly within the container.
-
 ## Contributing
 
-If you find any issues with the aanas0sayed/docker-ltspice Docker image or have suggestions for improvements, please feel free to contribute by creating a GitHub issue or submitting a pull request. Your contributions are welcome!
+If you find any issues or have suggestions for improvements, please contribute by creating a GitHub issue or submitting a pull request.
 
 ## License
 
 This project is licensed under the MIT License. For more details, please refer to the LICENSE file.
 
-This README file is an adaptation of the original scottyhardy/docker-wine project's README file, incorporating information specific to the aanas0sayed/docker-ltspice project. For more information on the scottyhardy/docker-wine project, please visit https://github.com/scottyhardy/docker-wine.
+For more information on the scottyhardy/docker-wine project, please visit [scottyhardy/docker-wine](https://github.com/scottyhardy/docker-wine).
