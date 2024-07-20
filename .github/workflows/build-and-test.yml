@@ -30,7 +30,7 @@ jobs:
 
       - name: Run LTspice simulation
         run: |
-          docker run --platform linux/amd64 --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v ${{ github.workspace }}:/workspace ltspice-test -c "wine /root/.wine/drive_c/Program\ Files/ADI/LTspice/LTspice.exe -wine -Run -b /workspace/test/circuit.asc && ls -a && ls /workspace -a && ls /workspace/test -a"
+          docker run --platform linux/amd64 --rm -v ${{ github.workspace }}:/workspace ltspice-test  bash -c "wine /root/.wine/drive_c/Program\ Files/ADI/LTspice/LTspice.exe -wine -Run -b /workspace/test/circuit.asc && ls -a && ls /workspace -a && ls /workspace/test -a"
 
       # - name: Check LTspice log
       #   run: |
