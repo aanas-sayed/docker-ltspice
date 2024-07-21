@@ -8,7 +8,7 @@
 
 This Docker image provides an environment for running [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html), a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
 
-`aanas0sayed/docker-ltspice` is aimed for running LTspice in a headless environment which can be beneficial for bulk simulations as part of pipelines. The GUI is also supported for easy debugging.
+`aanas0sayed/docker-ltspice` is aimed for running LTspice for bulk simulations as part of pipelines. Headless operations will require Xvfb to be set up correctly. This is currently in the pipeline.
 
 ## Pre-built images
 
@@ -24,27 +24,17 @@ docker pull aanas0sayed/docker-ltspice
 
 ### Running the Container
 
-#### Interactive Mode on any platform 
-
-```bash
-docker run -it --rm aanas0sayed/docker-ltspice
-```
-
 > [!IMPORTANT]
 >
 > The base image is `linux/amd64` and will not work on a machine running with a `arm64` architecture unless `--platform linux/amd64` is added to the `docker run` command.
 
-```bash
-docker run -it --rm aanas0sayed/docker-ltspice
-```
-
-#### GUI on Linux/Windows
+#### Running on Linux/Windows
 
 ```bash
 docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
 ```
 
-#### GUI on Mac
+#### Running on Mac
 
 1. Install [XQuartz](https://www.xquartz.org):
 
