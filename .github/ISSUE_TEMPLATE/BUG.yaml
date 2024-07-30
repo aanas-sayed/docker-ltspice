@@ -1,0 +1,66 @@
+name: Bug Report
+description: You are using the Docker image but encounter crashes, exceptions, bugs, or something looks wrong.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for using `aanas0sayed/docker-ltspice` Docker image!
+
+        If you are looking for support, please check out our documentation.
+        <!-- TODO: Add documentation link -->
+        <!-- * [Documentation](https://example.com/docs) -->
+
+        If you have found a bug or if our documentation doesn't have an answer
+        to what you're looking for, please fill out the form below.
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      description: OS and architecture where the issue occurs
+      placeholder: e.g., Windows 10, amd64 or Apple OS X 14.1, arm64
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Docker Image Version
+      description: Docker image version or commit ID
+      placeholder: e.g., 0.0.1 or 123abc1
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Problem
+      description: |
+        Please explain what is the issue and exactly how to reproduce the problem 
+        you are running into.  
+        
+        Include a minimal code sample or Docker commands that can be used to reproduce the error and 
+        the output you see. 
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: checkboxes
+    id: self-checks
+    attributes:
+      label: Checklist before Submitting a Bug
+      description: Please verify all the following items before submitting a bug. All options must be selected.
+      options:
+        - label: I searched issues in this repository and couldn't find such bug/problem
+          required: true
+        - label: I searched for a solution online and couldn't find it
+          required: true
+        - label: I searched on Stack Overflow for a solution and couldn't find it
+          required: true
+        - label: I read the project's README.md file
+          required: true
+        - label: I'm using the latest version of the Docker image
+          required: true
+        - label: All dependencies are up to date
+          required: true

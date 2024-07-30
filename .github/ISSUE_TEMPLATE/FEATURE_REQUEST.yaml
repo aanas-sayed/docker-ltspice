@@ -1,0 +1,38 @@
+name: Feature Request
+description: Suggest a new idea for the Docker image.
+title: "[Request]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for using `aanas0sayed/docker-ltspice` Docker image!
+
+        If you are looking for support, please check out our documentation.
+        <!-- TODO: Add documentation link -->
+        <!-- * [Documentation](https://example.com/docs) -->
+
+        If you would like to see a new feature or if our documentation doesn't have an answer
+        to what you're looking for, please fill out the form below.
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: |
+        Please tell us the problem you are running into that led to you wanting
+        a new feature.
+
+        Is your feature request related to a problem? Please give a clear and
+        concise description of what the problem is.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: |
+        Briefly but precisely describe what you would like the Docker image to be able to do.
+
+        Consider attaching images or diagrams to illustrate your idea.
+    validations:
+      required: true
