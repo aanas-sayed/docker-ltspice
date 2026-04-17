@@ -9,5 +9,5 @@ RUN wget https://ltspice.analog.com/software/LTspice64.msi && \
 RUN printf '#!/bin/sh\nexec wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" "$@"\n' \
     > /usr/local/bin/ltspice && chmod +x /usr/local/bin/ltspice
 
-# Set bash as the entry point
-ENTRYPOINT ["/bin/bash"]
+# Use the base image entrypoint (handles X11 forwarding and RDP server modes)
+ENTRYPOINT ["/usr/bin/entrypoint"]
