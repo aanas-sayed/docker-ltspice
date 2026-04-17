@@ -1,0 +1,50 @@
+name: LTspice headless test
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Re-run weekly (Monday 03:00 UTC) to pick up new LTspice releases
+    - cron: "0 3 * * 1"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set cache week key
+        run: echo "CACHE_WEEK=$(date -u +%Y-W%V)" >> "$GITHUB_ENV"
+
+      - name: Set up QEMU (for linux/amd64 emulation if needed)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: docker-ltspice:ci
+          # Cache key includes the year+week so the weekly scheduled run gets a
+          # fresh cache scope and re-downloads LTspice if a new release is out.
+          cache-from: type=gha,scope=ltspice-w${{ env.CACHE_WEEK }}
+          cache-to: type=gha,scope=ltspice-w${{ env.CACHE_WEEK }},mode=max
+
+      - name: Run simulation test
+        run: |
+          chmod +x test.sh
+          ./test.sh docker-ltspice:ci
+
+      - name: Upload simulation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc_filter_log
+          path: test/rc_filter.log
+          if-no-files-found: warn
