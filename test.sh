@@ -46,13 +46,10 @@ export WINEDLLOVERRIDES="winebth.sys="
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
 
 echo "  [run]  ltspice -b \"$NETLIST_WIN\""
-# Wine's wineserver keeps running after LTspice exits; timeout + wineserver -k
-# ensures we never hang. 60 s is far more than enough for a tiny netlist.
-timeout 60 ltspice -Run -b "$NETLIST_WIN" || true
-wineserver -k 2>/dev/null || true
+ltspice -Run -b "$NETLIST_WIN"
 
-# Allow the .log file to be flushed to the volume mount
-sleep 1
+# Allow Wine/LTspice to finish flushing the .log output file
+sleep 3
 
 kill "$XVFB_PID" 2>/dev/null || true
 echo "  [done] simulation finished"
