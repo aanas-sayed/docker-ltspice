@@ -9,7 +9,8 @@ RUN wget https://ltspice.analog.com/software/LTspice64.msi && \
     rm LTspice64.msi
 
 # Install a wrapper script so 'ltspice' works in any shell
-RUN printf '#!/bin/sh\nexec wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" "$@"\n' \
+RUN { echo '#!/bin/sh'; \
+      echo 'exec wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" "$@"'; } \
     > /usr/local/bin/ltspice && chmod +x /usr/local/bin/ltspice
 
 # Use the base image entrypoint (handles X11 forwarding and RDP server modes)
