@@ -1,5 +1,8 @@
 FROM scottyhardy/docker-wine:latest
 
+# Install Xvfb for headless (batch) operation
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb && rm -rf /var/lib/apt/lists/*
+
 # Download and install LTspice
 RUN wget https://ltspice.analog.com/software/LTspice64.msi && \
     wine msiexec /i LTspice64.msi && \
