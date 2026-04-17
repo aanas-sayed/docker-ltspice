@@ -32,18 +32,27 @@ docker run --rm \
 set -e
 
 echo "  [xvfb] starting virtual display..."
-Xvfb :99 -screen 0 1024x768x24 -nolisten tcp &
+# Redirect stderr to suppress harmless xkbcomp keysym warnings
+Xvfb :99 -screen 0 1024x768x24 -nolisten tcp 2>/dev/null &
 XVFB_PID=$!
 export DISPLAY=:99
 sleep 1
 
+# Suppress Wine fixme/stub noise; keep only genuine errors (err channel)
+export WINEDEBUG=-all,+err
+# Silence the Bluetooth and network stub errors that always fire in containers
+export WINEDLLOVERRIDES="winebth.sys="
+
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
 
 echo "  [run]  ltspice -b \"$NETLIST_WIN\""
-ltspice -Run -b "$NETLIST_WIN"
+# Wine's wineserver keeps running after LTspice exits; timeout + wineserver -k
+# ensures we never hang. 60 s is far more than enough for a tiny netlist.
+timeout 60 ltspice -Run -b "$NETLIST_WIN" || true
+wineserver -k 2>/dev/null || true
 
-# Allow Wine/LTspice to finish flushing the .log output file
-sleep 3
+# Allow the .log file to be flushed to the volume mount
+sleep 1
 
 kill "$XVFB_PID" 2>/dev/null || true
 echo "  [done] simulation finished"
