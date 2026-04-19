@@ -25,31 +25,39 @@ echo ""
 # ── Run LTspice inside the container ─────────────────────────────────────────
 # Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim
 docker run --rm \
-    --platform=linux/amd64 \
-    --entrypoint bash \
     --volume "$TEST_DIR:/sim" \
     "$IMAGE" -c '
 set -e
 
-echo "  [xvfb] starting virtual display..."
-# Redirect stderr to suppress harmless xkbcomp keysym warnings
-Xvfb :99 -screen 0 1024x768x24 -nolisten tcp 2>/dev/null &
+# LTspice requires a display even in batch mode; start a virtual framebuffer
+Xvfb :0 -screen 0 1024x768x16 &
 XVFB_PID=$!
-export DISPLAY=:99
-sleep 1
+export DISPLAY=:0
 
-# Suppress Wine fixme/stub noise; keep only genuine errors (err channel)
-export WINEDEBUG=-all,+err
-# Silence the Bluetooth and network stub errors that always fire in containers
-export WINEDLLOVERRIDES="winebth.sys="
-
+# # Suppress Wine fixme/stub noise; keep only genuine errors (err channel)
+# export WINEDEBUG=-all,+err
+# # Silence the Bluetooth and network stub errors that always fire in containers
+# export WINEDLLOVERRIDES="winebth.sys="
+    
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
+LOG_WIN="/sim/rc_filter.log"
 
 echo "  [run]  ltspice -b \"$NETLIST_WIN\""
-ltspice -Run -b "$NETLIST_WIN"
+wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "$NETLIST_WIN" &
+WINE_PID=$!
 
-# Allow Wine/LTspice to finish flushing the .log output file
-sleep 3
+# Poll for the log file to appear (LTspice writes it when done), max 90s
+for i in $(seq 1 90); do
+    if [[ -f "$LOG_WIN" ]]; then
+        sleep 1  # let LTspice finish flushing
+        break
+    fi
+    sleep 1
+done
+
+# Kill wine and wineserver now that we have the log
+kill "$WINE_PID" 2>/dev/null || true
+pkill -f wineserver 2>/dev/null || true
 
 kill "$XVFB_PID" 2>/dev/null || true
 echo "  [done] simulation finished"
