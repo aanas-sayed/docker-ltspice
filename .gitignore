@@ -5,6 +5,7 @@ test/*.op.raw
 test/*.fft
 test/*.mout
 test/*.net.bak
+test/*.db
 
 # macOS
 .DS_Store
