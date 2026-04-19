@@ -6,15 +6,56 @@
 
 <!-- badges: end -->
 
-This Docker image provides an environment for running [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html), a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
 
-`aanas0sayed/docker-ltspice` is aimed for running LTspice for bulk simulations as part of pipelines. Headless operations will require Xvfb to be set up correctly. This is currently in the pipeline.
+**docker-ltspice** provides a fully headless, automated environment for running [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html) (Windows version) under Wine in Linux containers. It is designed for CI pipelines, batch simulation, and server use—no GUI or desktop required.
+
+**Key features:**
+- Runs LTspice in true headless mode (no desktop, no VNC, no RDP needed)
+- Handles all Wine/Xvfb quirks for you (see below)
+- Works out-of-the-box on Linux CI runners (e.g., GitHub Actions)
+- Includes a test harness for automated .meas validation
+
+**Known issue:**
+- On macOS, running with a real X11 display (e.g., by passing DISPLAY and using XQuartz) is not reliable—Wine/LTspice may hang or fail to start. Headless mode works and is the only supported configuration on macOS. On Linux, running with a real X11 display usually works, but is not the main focus.
 
 ## Pre-built images
 
 Images are available on [DockerHub](https://hub.docker.com/r/aanas0sayed/docker-ltspice).
 
-## Usage
+
+## Usage (Headless/Bulk Simulation)
+
+```bash
+docker run --rm -v "$PWD/test:/sim" aanas0sayed/docker-ltspice:latest
+```
+
+This will automatically:
+- Prime Wine/LTspice (workaround for Wine GUI service hangs)
+- Start Xvfb on :99
+- Run your simulation in /sim (see test.sh for an example)
+
+**Typical batch/test usage:**
+
+```bash
+docker run --rm -v "$PWD/test:/sim" aanas0sayed/docker-ltspice:latest /bin/bash -c '
+    wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "Z:\\sim\\your_circuit.net"
+'
+```
+
+## Overriding Entrypoint (Advanced/GUI)
+
+If you want to run with a real X11 display, you can override the entrypoint and manage Xvfb/DISPLAY yourself:
+
+```bash
+docker run --rm -it --entrypoint /bin/bash -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
+# Now start Xvfb or connect to your X server, then run wine LTspice.exe ...
+```
+
+**Warning:** On macOS, if you try to use a real X11 display (e.g., by passing DISPLAY and using XQuartz), Wine/LTspice may hang or fail to start. This is a Wine/X11 limitation and not fixable in this image. Headless mode works. On Linux, running with a real X11 display usually works, but is not the main focus.
+
+## CI Example
+
+See [test.sh](test.sh) and [test.yml](.github/workflows/test.yml) for a full CI pipeline example that validates .meas results from a simulation log.
 
 ### Pull the Image
 
@@ -80,39 +121,21 @@ docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --user=
 
 This command runs the container with the same username, UID, GID, and home path as your current user, allowing you to interact with files on the local file system without permissions issues.
 
-## Additional Options
 
-- Run with RDP server enabled (as root):
+## Known Issues
 
-    ```bash
-    docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 aanas0sayed/docker-ltspice
-    ```
-
-- Run with RDP server enabled (as current user):
-
-    ```bash
-    docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) aanas0sayed/docker-ltspice
-    ```
-
-For more options and detailed usage instructions on the base image, refer to the [scottyhardy/docker-wine](https://github.com/scottyhardy/docker-wine/blob/master/).
+- **macOS/XQuartz:** Headless mode is the only supported configuration. On macOS, running with XQuartz (by passing DISPLAY) is unreliable and may hang or fail to start.
+- **ARM/M-series Macs:** Use `--platform linux/amd64` when running on Apple Silicon.
 
 ## Troubleshooting
 
-- Test the display:
+- If your simulation hangs, make sure you are running in headless mode (do not set DISPLAY to a real X server).
+- If you want to debug interactively, override the entrypoint and start Xvfb manually as shown above.
 
-    ```bash
-    ltspice wine notepad
-    ```
-
-- Test the sound:
-
-    ```bash
-    ltspice pacat -vv /dev/urandom
-    ```
 
 ## Contributing
 
-If you find any issues or have suggestions for improvements, please contribute by creating a GitHub issue or submitting a pull request.
+Issues and PRs are welcome! Please file bugs or suggestions on GitHub.
 
 ## License
 

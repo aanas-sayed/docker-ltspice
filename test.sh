@@ -22,22 +22,15 @@ echo "    image  : $IMAGE"
 echo "    netlist: $TEST_DIR/$NETLIST"
 echo ""
 
+# ── Clean up previous run artifacts ──────────────────────────────────────────
+rm -f "$TEST_DIR"/"${NETLIST%.net}".{log,raw,op.raw,db}
+
 # ── Run LTspice inside the container ─────────────────────────────────────────
 # Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim
 docker run --rm \
     --volume "$TEST_DIR:/sim" \
-    "$IMAGE" -c '
+    "$IMAGE" /bin/bash -c '
 set -e
-
-# LTspice requires a display even in batch mode; start a virtual framebuffer
-Xvfb :0 -screen 0 1024x768x16 &
-XVFB_PID=$!
-export DISPLAY=:0
-
-# # Suppress Wine fixme/stub noise; keep only genuine errors (err channel)
-# export WINEDEBUG=-all,+err
-# # Silence the Bluetooth and network stub errors that always fire in containers
-# export WINEDLLOVERRIDES="winebth.sys="
     
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
 LOG_WIN="/sim/rc_filter.log"
@@ -59,7 +52,6 @@ done
 kill "$WINE_PID" 2>/dev/null || true
 pkill -f wineserver 2>/dev/null || true
 
-kill "$XVFB_PID" 2>/dev/null || true
 echo "  [done] simulation finished"
 '
 

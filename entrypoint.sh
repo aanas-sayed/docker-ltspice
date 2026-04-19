@@ -9,40 +9,42 @@
 
 set -e
 
-# ── 1. Start Xvfb if not already running ───────────────────────────────────
 XVFB_DISPLAY="${DISPLAY:-:99}"
-XVFB_RESOLUTION="${XVFB_RESOLUTION:-1024x768x24}"
+DISPLAY_NUM="${XVFB_DISPLAY#:}"
+XVFB_RESOLUTION="${XVFB_RESOLUTION:-1024x768x16}"
 
-if ! pgrep -x Xvfb > /dev/null 2>&1; then
-    echo "[entrypoint] Starting Xvfb on ${XVFB_DISPLAY} (${XVFB_RESOLUTION})"
-    Xvfb "${XVFB_DISPLAY}" -screen 0 "${XVFB_RESOLUTION}" -nolisten tcp &
-    XVFB_PID=$!
+# ── 1. Prime Wine (no X server yet) ───────────────────────────────────────
+#   The first wine invocation after a fresh container start triggers internal
+#   service/init work (winebth, shell32, etc.).  If an X server IS available,
+#   those services try to create windows and block forever.  Running LTspice
+#   once with DISPLAY pointing to a non-existent server makes them fail fast
+#   and complete their init.  The second run then works cleanly.
+echo "[entrypoint] Priming Wine (display ${XVFB_DISPLAY}, no X yet)..."
+export DISPLAY="${XVFB_DISPLAY}"
+wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b 2>/dev/null || true
+wineserver --wait 2>/dev/null || true
+echo "[entrypoint] Wine primed."
 
-    # ── 2. Wait for the X server to be ready (max 10 s) ────────────────────
-    for i in $(seq 1 20); do
-        if xdpyinfo -display "${XVFB_DISPLAY}" > /dev/null 2>&1; then
-            echo "[entrypoint] Xvfb ready."
-            break
-        fi
-        sleep 0.5
-    done
-fi
+# ── 2. Start Xvfb ─────────────────────────────────────────────────────────
+rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
+echo "[entrypoint] Starting Xvfb on ${XVFB_DISPLAY} (${XVFB_RESOLUTION})"
+Xvfb "${XVFB_DISPLAY}" -screen 0 "${XVFB_RESOLUTION}" -nolisten tcp 2>/dev/null &
+XVFB_PID=$!
+
+# Wait for the X server socket to appear (max 10 s)
+for i in $(seq 1 20); do
+    if [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ]; then
+        echo "[entrypoint] Xvfb ready (PID ${XVFB_PID})."
+        break
+    fi
+    if ! kill -0 "$XVFB_PID" 2>/dev/null; then
+        echo "[entrypoint] ERROR: Xvfb exited unexpectedly!" >&2
+        break
+    fi
+    sleep 0.5
+done
 
 export DISPLAY="${XVFB_DISPLAY}"
 
-# ── 3. Initialise Wine prefix on first run ─────────────────────────────────
-#   wineboot --init creates ~/.wine (WINEPREFIX) and runs the initial Wine
-#   setup. We suppress the GUI and set WINEDLLOVERRIDES to skip the Mono/
-#   Gecko install dialogs that would otherwise block forever in a headless env.
-# if [ ! -f "${WINEPREFIX}/system.reg" ]; then
-#     echo "[entrypoint] Initialising Wine prefix at ${WINEPREFIX} …"
-#     WINEDLLOVERRIDES="mscoree,mshtml=" \
-#     DISPLAY="${XVFB_DISPLAY}" \
-#     wineboot --init 2>/dev/null
-#     # Wait for wineserver to finish (important before running any wine command)
-#     wineserver --wait
-#     echo "[entrypoint] Wine prefix ready."
-# fi
-
-# ── 4. Hand off to the user's command ──────────────────────────────────────
+# ── 3. Hand off to the user's command ──────────────────────────────────────
 exec "$@"

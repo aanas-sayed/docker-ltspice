@@ -48,14 +48,22 @@ RUN apt-get update \
 
 # ── 5. Wine env ────────────────────────────────────────────────────────────
 ENV WINEPREFIX=/root/.wine \
+    WINEDEBUG=-all \
     DISPLAY=:99
 
 # ── 6. Install LTspice ─────────────────────────────────────────────────────
 # Xvfb must be running before wineboot/msiexec – both need a display.
 # We start it in the same RUN layer, do everything, then kill it.
-RUN wget -q -O /tmp/LTspice64.msi https://ltspice.analog.com/software/LTspice64.msi \
+RUN Xvfb :99 -screen 0 1024x768x24 & \
+    sleep 2 \
+    && WINEDLLOVERRIDES="mscoree,mshtml=" wineboot --init \
+    && wineserver --wait \
+    && wget -q -O /tmp/LTspice64.msi https://ltspice.analog.com/software/LTspice64.msi \
     && wine msiexec /i /tmp/LTspice64.msi /quiet /norestart \
-    && rm /tmp/LTspice64.msi
+    && wineserver --wait \
+    && rm /tmp/LTspice64.msi \
+    && rm -rf /tmp/.wine-* /tmp/wine-* \
+    && kill %1 2>/dev/null || true
     
 # ── 7. Entrypoint ──────────────────────────────────────────────────────────
 COPY entrypoint.sh /usr/local/bin/entrypoint
