@@ -3,6 +3,7 @@ name: LTspice headless test
 on:
   push:
   pull_request:
+  workflow_dispatch:
   schedule:
     # Re-run weekly (Monday 03:00 UTC) to pick up new LTspice releases
     - cron: "0 3 * * 1"
