@@ -42,7 +42,7 @@ RUN dpkg --add-architecture i386 \
 
 # ── 4. Wine ────────────────────────────────────────────────────────────────
 RUN apt-get update \
-    && apt-get install -y --install-recommends \
+    && apt-get install -y --no-install-recommends \
         winehq-${WINE_BRANCH} \
     && rm -rf /var/lib/apt/lists/*
 
@@ -54,6 +54,7 @@ ENV WINEPREFIX=/root/.wine \
 # ── 6. Install LTspice ─────────────────────────────────────────────────────
 # Xvfb must be running before wineboot/msiexec – both need a display.
 # We start it in the same RUN layer, do everything, then kill it.
+# wget and other build-only tools are removed at the end of this layer.
 RUN Xvfb :99 -screen 0 1024x768x24 & \
     sleep 2 \
     && WINEDLLOVERRIDES="mscoree,mshtml=" wineboot --init \
@@ -64,12 +65,16 @@ RUN Xvfb :99 -screen 0 1024x768x24 & \
     && rm /tmp/LTspice64.msi \
     && rm -rf /tmp/.wine-* /tmp/wine-* \
     && kill %1 2>/dev/null || true
-    
-# ── 7. Entrypoint ──────────────────────────────────────────────────────────
+
+# ── 7. Remove build-only tools ────────────────────────────────────────────
+RUN apt-get purge -y --auto-remove wget p7zip-full unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── 8. Entrypoint ──────────────────────────────────────────────────────────
 COPY entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 
-# ── 8. LTspice wrapper ─────────────────────────────────────────────────────
+# ── 9. LTspice wrapper ─────────────────────────────────────────────────────
 COPY wrappers/ltspice /usr/local/bin/ltspice
 RUN chmod +x /usr/local/bin/ltspice
 
