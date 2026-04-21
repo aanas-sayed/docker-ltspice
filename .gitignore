@@ -1,0 +1,14 @@
+# LTspice simulation outputs
+test/*.log
+test/*.raw
+test/*.op.raw
+test/*.fft
+test/*.mout
+test/*.net.bak
+test/*.db
+
+# macOS
+.DS_Store
+
+# Docker build artefacts
+*.tar

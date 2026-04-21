@@ -1,119 +1,98 @@
 # docker-ltspice
 
 <!-- badges: start -->
-
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
 <!-- badges: end -->
 
-This Docker image provides an environment for running [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html), a popular electronic circuit simulation software, using Wine on a Linux image. It is based on the scottyhardy/docker-wine project and includes additional configurations specific to running LTspice.
+Run [LTspice](https://www.analog.com/en/resources/design-tools-and-calculators/ltspice-simulator.html) headlessly in Docker via Wine. Designed for batch simulation, CI pipelines, and server use—no desktop required.
 
-`aanas0sayed/docker-ltspice` is aimed for running LTspice for bulk simulations as part of pipelines. Headless operations will require Xvfb to be set up correctly. This is currently in the pipeline.
+The image is based on `debian:bookworm-slim` with Wine (stable) and LTspice pre-installed. The entrypoint automatically handles Wine initialisation and starts Xvfb on `:99`, so simulations work out of the box.
 
-## Pre-built images
-
-Images are available on [DockerHub](https://hub.docker.com/r/aanas0sayed/docker-ltspice).
-
-## Usage
-
-### Pull the Image
-
-```bash
-docker pull aanas0sayed/docker-ltspice
-```
-
-### Running the Container
+Pre-built images are available on [DockerHub](https://hub.docker.com/r/aanas0sayed/docker-ltspice).
 
 > [!IMPORTANT]
->
-> The base image is `linux/amd64` and will not work on a machine running with a `arm64` architecture unless `--platform linux/amd64` is added to the `docker run` command.
+> The image is `linux/amd64` only. On ARM machines (e.g. Apple Silicon), add `--platform linux/amd64` to all `docker run` commands.
 
-#### Running on Linux/Windows
+---
+
+## Headless usage
+
+Mount a directory containing your netlist and run LTspice in batch mode:
 
 ```bash
-docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
+docker run --rm \
+  -v /path/to/netlists:/sim \
+  aanas0sayed/docker-ltspice \
+  ltspice -b -run "Z:\\sim\\your_circuit.net"
 ```
 
-#### Running on Mac
+The `ltspice` command is a thin wrapper around `wine LTspice.exe`.
 
-1. Install [XQuartz](https://www.xquartz.org):
+### CI example
+
+See [test.sh](test.sh) and [.github/workflows/test.yml](.github/workflows/test.yml) for a working example that runs a simulation and validates `.meas` results from the output log.
+
+---
+
+## X11 forwarding (GUI mode)
+
+### Linux
+
+```bash
+docker run --rm -it \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  aanas0sayed/docker-ltspice
+```
+
+### macOS (XQuartz)
+
+1. Install XQuartz:
 
     ```bash
     brew install --cask xquartz
     ```
 
-2. Logout and login of your Mac to activate XQuartz as the default X11 server.
-
-3. Start [XQuartz](https://www.xquartz.org):
+2. Enable TCP listening (XQuartz disables this by default) and restart:
 
     ```bash
-    open -a XQuartz
+    defaults write org.xquartz.X11 nolisten_tcp -bool false
+    killall XQuartz 2>/dev/null; open -a XQuartz
     ```
 
-4. Enable "Allow connections from network clients" in Security Settings.
-5. Restart your Mac and start XQuartz again:
+3. Allow connections from localhost:
 
     ```bash
-    open -a XQuartz
+    DISPLAY=:0 xhost +127.0.0.1
     ```
 
-> [!NOTE]
->
-> If connecting to a remote server, the access control will need to be modified. Running `xhost +` allows any client to connect (not recommended). If you have security concerns you can append an IP address for a whitelist mechanism. Alternatively, if you want to limit X11 forwarding to local containers, you can limit clients to localhost only via `xhost +localhost`
-> This is not a persistent setting.
-
-6. Run the container:
+4. Run the container:
 
     ```bash
-    docker run -it --rm -e DISPLAY=docker.for.mac.host.internal:0 -v /tmp/.X11-unix:/tmp/.X11-unix aanas0sayed/docker-ltspice
+    docker run --rm -it \
+      --platform linux/amd64 \
+      -e DISPLAY=host.docker.internal:0 \
+      -v /tmp/.X11-unix:/tmp/.X11-unix \
+      aanas0sayed/docker-ltspice
     ```
 
-For MacBook M series (ARM chip), add `--platform linux/amd64` to the command.
-
-For support on this topic, please check the guide on [X11 forwarding on macOS and docker](https://gist.github.com/sorny/969fe55d85c9b0035b0109a31cbcb088) 
-
-### Running as Current User
-
-```bash
-docker run -it --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --user=$(id -u):$(id -g) aanas0sayed/docker-ltspice
-```
-
-This command runs the container with the same username, UID, GID, and home path as your current user, allowing you to interact with files on the local file system without permissions issues.
-
-## Additional Options
-
-- Run with RDP server enabled (as root):
-
-    ```bash
-    docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 aanas0sayed/docker-ltspice
-    ```
-
-- Run with RDP server enabled (as current user):
-
-    ```bash
-    docker run -it --rm -e RDP_SERVER=yes -p 3389:3389 -e USER_ID=$(id -u) -e GROUP_ID=$(id -g) aanas0sayed/docker-ltspice
-    ```
-
-For more options and detailed usage instructions on the base image, refer to the [scottyhardy/docker-wine](https://github.com/scottyhardy/docker-wine/blob/master/).
+---
 
 ## Troubleshooting
 
-- Test the display:
+- **File not found / path errors:** LTspice runs inside Wine, so paths must use the Wine `Z:` drive (which maps to `/` on the container). For example, a netlist mounted at `/sim/circuit.net` should be passed as `Z:\\sim\\circuit.net`.
+- **Interactive shell:** The entrypoint still runs (priming Wine and starting Xvfb) before handing off to your command:
 
     ```bash
-    ltspice wine notepad
+    docker run --rm -it aanas0sayed/docker-ltspice /bin/bash
     ```
 
-- Test the sound:
-
-    ```bash
-    ltspice pacat -vv /dev/urandom
-    ```
+---
 
 ## Contributing
 
-If you find any issues or have suggestions for improvements, please contribute by creating a GitHub issue or submitting a pull request.
+Issues and pull requests are welcome.
 
 ## License
 
-This project is licensed under the [MIT License](https://opensource.org/license/MIT). For more details, please refer to the LICENSE file.
+[MIT License](https://opensource.org/license/MIT) — see [LICENSE](LICENSE) for details.

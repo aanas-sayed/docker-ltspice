@@ -1,0 +1,30 @@
+* RC Low-pass Filter – LTspice Headless Batch Test
+* -------------------------------------------------------
+* Simple RC circuit driven by a 0→5 V step.
+* RC time constant τ = R1·C1 = 1 kΩ · 1 µF = 1 ms
+*
+* After 5 ms (≥5τ) the capacitor should be fully charged:
+*   V(out) → 5 V
+*
+* .meas statements written to the .log file are checked by
+* test.sh to confirm the simulation ran correctly.
+
+* Step: 0 V → 5 V at t=0, stays high for the entire transient
+V1  in  0  PWL(0 0 1n 5)
+R1  in  out  1k
+C1  out  0   1u
+
+.tran 0.1u 5m
+
+* Max voltage seen at the output – expect ≈4.97 V (5·(1−e⁻⁵))
+.meas tran vout_max  MAX  V(out)
+
+* Average voltage over the last millisecond – expect >4.9 V
+.meas tran vout_ss   AVG  V(out)  FROM=4m  TO=5m
+
+* Time at which V(out) first crosses one τ voltage: 5·(1−e⁻¹) ≈ 3.161 V
+* Expect ≈1 ms
+.meas tran tau_rise  WHEN V(out)=3.161  RISE=1
+
+.backanno
+.end
