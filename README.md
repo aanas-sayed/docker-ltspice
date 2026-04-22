@@ -13,6 +13,9 @@ Pre-built images are available on [DockerHub](https://hub.docker.com/r/aanas0say
 > [!IMPORTANT]
 > The image is `linux/amd64` only. On ARM machines (e.g. Apple Silicon), add `--platform linux/amd64` to all `docker run` commands.
 
+> [!WARNING]
+> **Apple Silicon / 16 KB page hosts:** Wine currently aborts with `anon_mmap_fixed: Assertion '!((UINT_PTR)start & host_page_mask)' failed` when run under QEMU user-mode emulation on hosts with a 16 KB page size (Apple Silicon Macs via Docker Desktop, Asahi Linux, etc.). This is a known upstream Wine bug — see [winehq #58084](https://bugs.winehq.org/show_bug.cgi?format=multiple&id=58084) — and is **not yet fixed** in any Wine branch (stable, devel, or staging) available via the WineHQ Debian repository. Until upstream ships a fix, this image will not run on Apple Silicon regardless of whether Rosetta is enabled in Docker Desktop. Use an `amd64` Linux host (native or VM with 4 KB pages) to run simulations in the meantime.
+
 ---
 
 ## Headless usage

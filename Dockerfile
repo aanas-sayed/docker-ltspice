@@ -5,7 +5,7 @@
 
 FROM debian:bookworm-slim
 
-ARG WINE_BRANCH=devel
+ARG WINE_BRANCH=stable
 ARG DEBIAN_FRONTEND=noninteractive
 
 # ── 1. Core packages ───────────────────────────────────────────────────────
