@@ -69,12 +69,9 @@ jobs:
         with:
           platforms: amd64
 
-      - name: Install Docker via Colima (apple-silicon only)
+      - name: Set up Docker (apple-silicon only)
         if: matrix.name == 'apple-silicon'
-        run: |
-          brew install colima docker
-          colima start --vm-type vz
-          echo "DOCKER_HOST=unix://${HOME}/.colima/default/docker.sock" >> "$GITHUB_ENV"
+        uses: douglascamata/setup-docker-macos-action@v1-alpha.16
 
       - name: Set up QEMU (apple-silicon only)
         if: matrix.name == 'apple-silicon'
