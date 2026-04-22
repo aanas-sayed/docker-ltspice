@@ -49,8 +49,6 @@ jobs:
             name: amd64-linux
           - runner: ubuntu-24.04-arm
             name: arm64-linux
-          - runner: macos-latest
-            name: apple-silicon
     runs-on: ${{ matrix.runner }}
     name: test (${{ matrix.name }})
 
@@ -65,16 +63,6 @@ jobs:
 
       - name: Set up QEMU (arm64-linux only)
         if: matrix.name == 'arm64-linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: amd64
-
-      - name: Set up Docker (apple-silicon only)
-        if: matrix.name == 'apple-silicon'
-        uses: douglascamata/setup-docker-macos-action@v1-alpha.16
-
-      - name: Set up QEMU (apple-silicon only)
-        if: matrix.name == 'apple-silicon'
         uses: docker/setup-qemu-action@v3
         with:
           platforms: amd64
