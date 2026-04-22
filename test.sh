@@ -28,6 +28,7 @@ rm -f "$TEST_DIR"/"${NETLIST%.net}".{log,raw,op.raw,db}
 # ── Run LTspice inside the container ─────────────────────────────────────────
 # Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim
 docker run --rm \
+    --platform linux/amd64 \
     --volume "$TEST_DIR:/sim" \
     "$IMAGE" /bin/bash -c '
 set -e
