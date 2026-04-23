@@ -14,7 +14,15 @@ Pre-built images are available on [DockerHub](https://hub.docker.com/r/aanas0say
 > The image is `linux/amd64` only. On ARM machines (e.g. Apple Silicon), add `--platform linux/amd64` to all `docker run` commands.
 
 > [!WARNING]
-> **Apple Silicon / 16 KB page hosts:** Wine currently aborts with `anon_mmap_fixed: Assertion '!((UINT_PTR)start & host_page_mask)' failed` when run under QEMU user-mode emulation on hosts with a 16 KB page size (Apple Silicon Macs via Docker Desktop, Asahi Linux, etc.). This is a known upstream Wine bug — see [winehq #58084](https://bugs.winehq.org/show_bug.cgi?format=multiple&id=58084) — and is **not yet fixed** in any Wine branch (stable, devel, or staging) available via the WineHQ Debian repository. Until upstream ships a fix, this image will not run on Apple Silicon regardless of whether Rosetta is enabled in Docker Desktop. Use an `amd64` Linux host (native or VM with 4 KB pages) to run simulations in the meantime.
+> **Apple Silicon / 16 KB page hosts:** Wine 10+ aborts with `anon_mmap_fixed: Assertion '!((UINT_PTR)start & host_page_mask)' failed` when run under QEMU user-mode emulation on hosts with a 16 KB page size (Apple Silicon Macs via Docker Desktop, Asahi Linux, etc.). This is a known upstream Wine bug — see [winehq #58084](https://bugs.winehq.org/show_bug.cgi?format=multiple&id=58084) — and is **not yet fixed** in Wine 10 or 11.
+>
+> **Workaround:** Use the `macos-latest` tag, which is pinned to Wine 9.0 and does not exhibit this bug:
+> ```bash
+> docker pull --platform linux/amd64 aanas0sayed/docker-ltspice:macos-latest
+> ```
+> See the [macOS section](#macos-xquartz) below for full usage instructions.
+>
+> Once upstream ships a fix this workaround will no longer be needed and `macos-latest` can be replaced with `latest`.
 
 ---
 
@@ -50,6 +58,9 @@ docker run --rm -it \
 
 ### macOS (XQuartz)
 
+> [!NOTE]
+> Use the `macos-latest` tag on Apple Silicon — see the warning above.
+
 1. Install XQuartz:
 
     ```bash
@@ -76,13 +87,17 @@ docker run --rm -it \
       --platform linux/amd64 \
       -e DISPLAY=host.docker.internal:0 \
       -v /tmp/.X11-unix:/tmp/.X11-unix \
-      aanas0sayed/docker-ltspice
+      aanas0sayed/docker-ltspice:macos-latest
     ```
+
+> [!NOTE]
+> **First-run Xvfb failure:** On the first `docker run`, Xvfb may fail to start (`ERROR: Xvfb exited unexpectedly`). This is a known issue on macOS. Simply run `ltspice` from the shell prompt and it will work — the container is still usable after the entrypoint error. This only occurs with X11 forwarding.
 
 ---
 
 ## Troubleshooting
 
+- **Xvfb fails on first run (macOS):** The entrypoint prints `ERROR: Xvfb exited unexpectedly` on the first container start on macOS. This is a known issue — the container is still usable. Run `ltspice` from the shell and it will work normally.
 - **File not found / path errors:** LTspice runs inside Wine, so paths must use the Wine `Z:` drive (which maps to `/` on the container). For example, a netlist mounted at `/sim/circuit.net` should be passed as `Z:\\sim\\circuit.net`.
 - **Interactive shell:** The entrypoint still runs (priming Wine and starting Xvfb) before handing off to your command:
 

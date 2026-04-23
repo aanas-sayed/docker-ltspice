@@ -6,6 +6,7 @@
 FROM debian:bookworm-slim
 
 ARG WINE_BRANCH=stable
+ARG WINE_VERSION=""
 ARG DEBIAN_FRONTEND=noninteractive
 
 # ── 1. Core packages ───────────────────────────────────────────────────────
@@ -42,8 +43,16 @@ RUN dpkg --add-architecture i386 \
 
 # ── 4. Wine ────────────────────────────────────────────────────────────────
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        winehq-${WINE_BRANCH} \
+    && if [ -n "${WINE_VERSION}" ]; then \
+           apt-get install -y --no-install-recommends \
+               winehq-${WINE_BRANCH}=${WINE_VERSION} \
+               wine-${WINE_BRANCH}=${WINE_VERSION} \
+               wine-${WINE_BRANCH}-amd64=${WINE_VERSION} \
+               wine-${WINE_BRANCH}-i386=${WINE_VERSION}; \
+       else \
+           apt-get install -y --no-install-recommends \
+               winehq-${WINE_BRANCH}; \
+       fi \
     && rm -rf /var/lib/apt/lists/*
 
 # ── 5. Wine env ────────────────────────────────────────────────────────────
