@@ -28,29 +28,16 @@ rm -f "$TEST_DIR"/"${NETLIST%.net}".{log,raw,op.raw,db}
 # ── Run LTspice inside the container ─────────────────────────────────────────
 # Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim
 docker run --rm \
+    --platform linux/amd64 \
     --volume "$TEST_DIR:/sim" \
     "$IMAGE" /bin/bash -c '
 set -e
     
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
-LOG_WIN="/sim/rc_filter.log"
 
 echo "  [run]  ltspice -b \"$NETLIST_WIN\""
-wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "$NETLIST_WIN" &
-WINE_PID=$!
-
-# Poll for the log file to appear (LTspice writes it when done), max 90s
-for i in $(seq 1 90); do
-    if [[ -f "$LOG_WIN" ]]; then
-        sleep 1  # let LTspice finish flushing
-        break
-    fi
-    sleep 1
-done
-
-# Kill wine and wineserver now that we have the log
-kill "$WINE_PID" 2>/dev/null || true
-pkill -f wineserver 2>/dev/null || true
+timeout 120 wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "$NETLIST_WIN" || true
+wineserver --wait 2>/dev/null || true
 
 echo "  [done] simulation finished"
 '
