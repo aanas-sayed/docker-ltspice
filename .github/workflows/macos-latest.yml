@@ -1,0 +1,67 @@
+name: Publish macos-latest (Wine 9)
+
+# Manually-triggered build of the `macos-latest` tag, pinned to Wine 9.x.
+#
+# Why a separate workflow:
+#   The default `latest` tag tracks Wine stable (currently Wine 10), which
+#   aborts under QEMU on 16 KB page-size hosts (Apple Silicon Macs via
+#   Docker Desktop, Asahi Linux). Wine 9 does not exhibit that bug, so the
+#   `macos-latest` tag stays pinned to Wine 9 until upstream #58084 ships.
+#
+# Run via the Actions tab → "Run workflow", optionally overriding the
+# Wine version pin (e.g. to bump to a newer 9.x point release).
+
+on:
+  workflow_dispatch:
+    inputs:
+      wine_version:
+        description: "Debian package version pin for wine-stable (e.g. 9.0.0.0~bookworm-1)"
+        required: true
+        default: "9.0.0.0~bookworm-1"
+      tag:
+        description: "Image tag to publish"
+        required: true
+        default: "macos-latest"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and smoke-test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: docker-ltspice:macos-ci
+          build-args: |
+            WINE_BRANCH=stable
+            WINE_VERSION=${{ inputs.wine_version }}
+
+      - name: Run simulation test
+        run: |
+          chmod +x test.sh
+          ./test.sh docker-ltspice:macos-ci
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: aanas0sayed/docker-ltspice:${{ inputs.tag }}
+          build-args: |
+            WINE_BRANCH=stable
+            WINE_VERSION=${{ inputs.wine_version }}
