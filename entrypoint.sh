@@ -6,7 +6,8 @@
 #      owned by the current uid (required: Wine refuses to use a prefix
 #      not owned by the running uid).
 #   2. Prime Wine so first-run service init completes without an X server.
-#   3. Start Xvfb on DISPLAY :99 so subsequent Wine calls have a display.
+#   3. Either start a local Xvfb on :99 (headless / batch mode), or
+#      respect the caller's DISPLAY if X11 forwarding was set up.
 #   4. exec the user's command (bash by default).
 #
 # Runs as the unprivileged wineuser (uid 1000) by default. Also tolerates
@@ -15,7 +16,11 @@
 
 set -e
 
-XVFB_DISPLAY="${DISPLAY:-:99}"
+# Caller-supplied DISPLAY (e.g. `-e DISPLAY=host.docker.internal:0` for X11
+# forwarding from XQuartz). Empty if the user didn't pass one — in which
+# case we run a private Xvfb on :99.
+USER_DISPLAY="${DISPLAY:-}"
+XVFB_DISPLAY=":99"
 DISPLAY_NUM="${XVFB_DISPLAY#:}"
 XVFB_RESOLUTION="${XVFB_RESOLUTION:-1024x768x16}"
 
@@ -44,38 +49,44 @@ fi
 
 LTSPICE_EXE="${WINEPREFIX}/drive_c/Program Files/ADI/LTspice/LTspice.exe"
 
-# ── 2. Prime Wine (no X server yet) ───────────────────────────────────────
+# ── 2. Prime Wine against a guaranteed-non-existent display ───────────────
 #   The first wine invocation after a fresh container start triggers internal
 #   service/init work (winebth, shell32, etc.).  If an X server IS available,
-#   those services try to create windows and block forever.  Running LTspice
-#   once with DISPLAY pointing to a non-existent server makes them fail fast
-#   and complete their init.  The second run then works cleanly.
-echo "[entrypoint] Priming Wine (display ${XVFB_DISPLAY}, no X yet)..."
-export DISPLAY="${XVFB_DISPLAY}"
-wine "$LTSPICE_EXE" -b 2>/dev/null || true
-wineserver --wait 2>/dev/null || true
+#   those services try to create windows and either block forever or finish
+#   in a half-initialised state that breaks the next GUI launch.  Pin
+#   DISPLAY to :99 here — Xvfb hasn't started yet, so the connection fails
+#   fast and the services complete their non-GUI init cleanly. We override
+#   any caller-supplied DISPLAY for this single step only.
+echo "[entrypoint] Priming Wine (no X yet)..."
+DISPLAY=":99" wine "$LTSPICE_EXE" -b 2>/dev/null || true
+DISPLAY=":99" wineserver --wait 2>/dev/null || true
 echo "[entrypoint] Wine primed."
 
-# ── 3. Start Xvfb ─────────────────────────────────────────────────────────
-rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
-echo "[entrypoint] Starting Xvfb on ${XVFB_DISPLAY} (${XVFB_RESOLUTION})"
-Xvfb "${XVFB_DISPLAY}" -screen 0 "${XVFB_RESOLUTION}" -nolisten tcp 2>/dev/null &
-XVFB_PID=$!
-
-# Wait for the X server socket to appear (max 10 s)
-for i in $(seq 1 20); do
-    if [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ]; then
-        echo "[entrypoint] Xvfb ready (PID ${XVFB_PID})."
-        break
-    fi
-    if ! kill -0 "$XVFB_PID" 2>/dev/null; then
-        echo "[entrypoint] ERROR: Xvfb exited unexpectedly!" >&2
-        break
-    fi
-    sleep 0.5
-done
-
-export DISPLAY="${XVFB_DISPLAY}"
+# ── 3. Pick the runtime DISPLAY ───────────────────────────────────────────
+# If the caller supplied DISPLAY (X11 forwarding, e.g. host.docker.internal:0
+# from XQuartz on macOS), use it as-is and skip Xvfb. Otherwise start a
+# private Xvfb on :99 for headless / batch operation.
+if [ -n "$USER_DISPLAY" ]; then
+    echo "[entrypoint] Using caller-provided DISPLAY=${USER_DISPLAY} (skipping Xvfb)"
+    export DISPLAY="$USER_DISPLAY"
+else
+    rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
+    echo "[entrypoint] Starting Xvfb on ${XVFB_DISPLAY} (${XVFB_RESOLUTION})"
+    Xvfb "${XVFB_DISPLAY}" -screen 0 "${XVFB_RESOLUTION}" -nolisten tcp 2>/dev/null &
+    XVFB_PID=$!
+    for i in $(seq 1 20); do
+        if [ -e "/tmp/.X11-unix/X${DISPLAY_NUM}" ]; then
+            echo "[entrypoint] Xvfb ready (PID ${XVFB_PID})."
+            break
+        fi
+        if ! kill -0 "$XVFB_PID" 2>/dev/null; then
+            echo "[entrypoint] ERROR: Xvfb exited unexpectedly!" >&2
+            break
+        fi
+        sleep 0.5
+    done
+    export DISPLAY="${XVFB_DISPLAY}"
+fi
 
 # ── 4. Hand off to the user's command ──────────────────────────────────────
 exec "$@"

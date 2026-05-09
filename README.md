@@ -109,14 +109,10 @@ docker run --rm -it \
       aanas0sayed/docker-ltspice:macos-latest
     ```
 
-> [!NOTE]
-> **First-run Xvfb failure:** On the first `docker run`, Xvfb may fail to start (`ERROR: Xvfb exited unexpectedly`). This is a known issue on macOS. Simply run `ltspice` from the shell prompt and it will work — the container is still usable after the entrypoint error. This only occurs with X11 forwarding.
-
 ---
 
 ## Troubleshooting
 
-- **Xvfb fails on first run (macOS):** The entrypoint prints `ERROR: Xvfb exited unexpectedly` on the first container start on macOS. This is a known issue — the container is still usable. Run `ltspice` from the shell and it will work normally.
 - **File not found / path errors:** LTspice runs inside Wine, so paths must use the Wine `Z:` drive (which maps to `/` on the container). For example, a netlist mounted at `/sim/circuit.net` should be passed as `Z:\\sim\\circuit.net`.
 - **Permission denied writing the log/raw file:** the container is non-root (uid 1000 by default). If your bind-mount directory isn't writable by that uid, either pass `--user=$(id -u):$(id -g)` so the in-container uid matches the directory owner, or `chmod` the directory so uid 1000 can write to it.
 - **Slower first call inside a container:** on every fresh `docker run`, the entrypoint copies the Wine prefix template into `/tmp/wine-prefix` (~150 MB). This is sub-second on tmpfs but adds a small fixed cost per container start.
