@@ -56,51 +56,63 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # ── 5. Unprivileged user ───────────────────────────────────────────────────
-# Image runs as wineuser (uid 1000) by default. The prefix is chmod a+rwX'd
-# below so the image still works under `--user=$(id -u):$(id -g)` for any uid.
+# Image runs as wineuser (uid 1000) by default. To also support
+# --user=$(id -u):$(id -g) for arbitrary uid/gid, the prefix is shipped as
+# a *template* (uid-agnostic) and the entrypoint copies it into a per-run
+# location owned by the current uid. Wine refuses to use a prefix not
+# owned by the running uid, so a simple chmod-only approach does not work.
 RUN groupadd -g 1000 wineuser \
     && useradd -m -u 1000 -g 1000 -s /bin/bash wineuser
 
 # ── 6. Wine env ────────────────────────────────────────────────────────────
+# WINEPREFIX deliberately points into /tmp (tmpfs in callers) — the
+# entrypoint materialises it from the on-image template on every fresh
+# container start. The build-time prefix lives at /opt/wineprefix-template.
 ENV HOME=/home/wineuser \
-    WINEPREFIX=/home/wineuser/.wine \
+    WINEPREFIX=/tmp/wine-prefix \
     WINEDEBUG=-all \
     DISPLAY=:99
 
-# ── 7. Install LTspice (as wineuser) ──────────────────────────────────────
+# ── 7. Install LTspice into a build-time prefix (as wineuser) ─────────────
 USER wineuser
 WORKDIR /home/wineuser
 RUN Xvfb :99 -screen 0 1024x768x24 & \
     sleep 2 \
-    && WINEDLLOVERRIDES="mscoree,mshtml=" wineboot --init \
-    && wineserver --wait \
+    && WINEPREFIX=/home/wineuser/.wine WINEDLLOVERRIDES="mscoree,mshtml=" \
+        wineboot --init \
+    && WINEPREFIX=/home/wineuser/.wine wineserver --wait \
     && wget -q -O /tmp/LTspice64.msi https://ltspice.analog.com/software/LTspice64.msi \
-    && wine msiexec /i /tmp/LTspice64.msi /quiet /norestart \
-    && wineserver --wait \
+    && WINEPREFIX=/home/wineuser/.wine wine msiexec /i /tmp/LTspice64.msi /quiet /norestart \
+    && WINEPREFIX=/home/wineuser/.wine wineserver --wait \
     && rm /tmp/LTspice64.msi \
     && rm -rf /tmp/.wine-* /tmp/wine-* \
     && kill %1 2>/dev/null || true
 
 USER root
 
-# Make the prefix tree readable + writable by any uid, so the image works
-# under `docker run --user=<arbitrary>:<arbitrary>` without CAP_CHOWN.
-# Use find with -type so we never dereference the dosdevices/z: -> /
-# symlink that wineboot installs in the prefix.
-RUN find /home/wineuser -type d -exec chmod a+rwx {} + \
-    && find /home/wineuser -type f -exec chmod a+rw {} +
+# ── 8. Split LTspice install out of the prefix; turn the prefix into a
+#       uid-agnostic template ─────────────────────────────────────────────
+# The 1.7 GB LTspice tree moves to /opt/ltspice (read-only at runtime),
+# replaced by a relative symlink from inside the prefix so the registry
+# entries written by msiexec still resolve. The slimmed-down prefix
+# (~150 MB) becomes /opt/wineprefix-template — the entrypoint copies it
+# per run into $WINEPREFIX, which makes the copy owned by the current
+# uid and satisfies Wine's "prefix is not owned by you" check.
+RUN mv "/home/wineuser/.wine/drive_c/Program Files/ADI/LTspice" /opt/ltspice \
+    && ln -s /opt/ltspice "/home/wineuser/.wine/drive_c/Program Files/ADI/LTspice" \
+    && mv /home/wineuser/.wine /opt/wineprefix-template \
+    && chmod -R a+rX /opt/ltspice \
+    && find /opt/wineprefix-template -type d -exec chmod a+rx {} + \
+    && find /opt/wineprefix-template -type f -exec chmod a+r {} +
 
-# ── 8. Remove build-only tools ────────────────────────────────────────────
+# ── 9. Remove build-only tools ────────────────────────────────────────────
 RUN apt-get purge -y --auto-remove wget p7zip-full unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# ── 9. Entrypoint ──────────────────────────────────────────────────────────
+# ── 10. Entrypoint + wrapper ──────────────────────────────────────────────
 COPY entrypoint.sh /usr/local/bin/entrypoint
-RUN chmod +x /usr/local/bin/entrypoint
-
-# ── 10. LTspice wrapper ────────────────────────────────────────────────────
 COPY wrappers/ltspice /usr/local/bin/ltspice
-RUN chmod +x /usr/local/bin/ltspice
+RUN chmod +x /usr/local/bin/entrypoint /usr/local/bin/ltspice
 
 USER wineuser
 WORKDIR /home/wineuser
