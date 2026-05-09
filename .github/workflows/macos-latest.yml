@@ -9,11 +9,14 @@ name: Publish macos-latest (Wine 9)
 #   `macos-latest` tag stays pinned to Wine 9 until upstream #58084 ships.
 #
 # Tags published on every run:
-#   - devel-YYYYMMDD-wine-<major.minor>  (immutable, audit trail)
-#   - macos-latest                       (rolling pointer, can be overridden)
+#   - devel-YYYYMMDD-wine-<major.minor>  (immutable, audit trail — always pushed)
+#   - <rolling_tag>                      (rolling pointer; defaults to
+#                                         macos-latest, blank to skip)
 #
 # Run via the Actions tab → "Run workflow", optionally overriding the
-# Wine version pin (e.g. to bump to a newer 9.x point release).
+# Wine version pin (e.g. to bump to a newer 9.x point release). Leave
+# rolling_tag empty to publish only the dated devel tag — useful for
+# trial builds that should not move the macos-latest pointer.
 
 on:
   workflow_dispatch:
@@ -23,8 +26,8 @@ on:
         required: true
         default: "9.0.0.0~bookworm-1"
       rolling_tag:
-        description: "Rolling tag to publish alongside the dated devel tag"
-        required: true
+        description: "Rolling tag to publish alongside the dated devel tag (leave blank to skip)"
+        required: false
         default: "macos-latest"
 
 jobs:
@@ -42,9 +45,23 @@ jobs:
           WINE_SHORT=$(echo "${{ inputs.wine_version }}" | cut -d. -f1-2)
           DEVEL_TAG="devel-${DATE}-wine-${WINE_SHORT}"
           IMAGE=aanas0sayed/docker-ltspice
-          echo "devel=${IMAGE}:${DEVEL_TAG}" >> "$GITHUB_OUTPUT"
-          echo "rolling=${IMAGE}:${{ inputs.rolling_tag }}" >> "$GITHUB_OUTPUT"
-          echo "Will publish: ${IMAGE}:${DEVEL_TAG} and ${IMAGE}:${{ inputs.rolling_tag }}"
+          # The dated devel tag is always pushed; the rolling pointer is
+          # only included when the input is non-empty. Multi-line tag
+          # output uses GITHUB_OUTPUT's heredoc form.
+          {
+            echo "list<<EOF"
+            echo "${IMAGE}:${DEVEL_TAG}"
+            if [ -n "${{ inputs.rolling_tag }}" ]; then
+              echo "${IMAGE}:${{ inputs.rolling_tag }}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -n "${{ inputs.rolling_tag }}" ]; then
+            echo "Will publish: ${IMAGE}:${DEVEL_TAG} and ${IMAGE}:${{ inputs.rolling_tag }}"
+          else
+            echo "Will publish: ${IMAGE}:${DEVEL_TAG} (no rolling tag)"
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -72,15 +89,13 @@ jobs:
           chmod +x test.sh
           ./test.sh docker-ltspice:macos-ci
 
-      - name: Push image with both tags
+      - name: Push image
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ steps.tags.outputs.devel }}
-            ${{ steps.tags.outputs.rolling }}
+          tags: ${{ steps.tags.outputs.list }}
           build-args: |
             WINE_BRANCH=stable
             WINE_VERSION=${{ inputs.wine_version }}
