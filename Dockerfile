@@ -68,21 +68,26 @@ RUN groupadd -g 1000 wineuser \
 # WINEPREFIX deliberately points into /tmp (tmpfs in callers) — the
 # entrypoint materialises it from the on-image template on every fresh
 # container start. The build-time prefix lives at /opt/wineprefix-template.
+# DISPLAY is intentionally NOT set here — the entrypoint uses an unset
+# DISPLAY as the signal "no caller-supplied X server, start a private
+# Xvfb on :99." Setting it as an image-level ENV would defeat that
+# signal: the entrypoint can't distinguish image-default from
+# caller-provided.
 ENV HOME=/home/wineuser \
     WINEPREFIX=/tmp/wine-prefix \
-    WINEDEBUG=-all \
-    DISPLAY=:99
+    WINEDEBUG=-all
 
 # ── 7. Install LTspice into a build-time prefix (as wineuser) ─────────────
 USER wineuser
 WORKDIR /home/wineuser
 RUN Xvfb :99 -screen 0 1024x768x24 & \
     sleep 2 \
-    && WINEPREFIX=/home/wineuser/.wine WINEDLLOVERRIDES="mscoree,mshtml=" \
-        wineboot --init \
+    && DISPLAY=:99 WINEPREFIX=/home/wineuser/.wine \
+       WINEDLLOVERRIDES="mscoree,mshtml=" wineboot --init \
     && WINEPREFIX=/home/wineuser/.wine wineserver --wait \
     && wget -q -O /tmp/LTspice64.msi https://ltspice.analog.com/software/LTspice64.msi \
-    && WINEPREFIX=/home/wineuser/.wine wine msiexec /i /tmp/LTspice64.msi /quiet /norestart \
+    && DISPLAY=:99 WINEPREFIX=/home/wineuser/.wine \
+       wine msiexec /i /tmp/LTspice64.msi /quiet /norestart \
     && WINEPREFIX=/home/wineuser/.wine wineserver --wait \
     && rm /tmp/LTspice64.msi \
     && rm -rf /tmp/.wine-* /tmp/wine-* \
