@@ -10,13 +10,12 @@ name: Publish macos-latest (Wine 9)
 #
 # Tags published on every run:
 #   - devel-YYYYMMDD-wine-<major.minor>  (immutable, audit trail — always pushed)
-#   - <rolling_tag>                      (rolling pointer; defaults to
-#                                         macos-latest, blank to skip)
+#   - <rolling_tag>                      (rolling pointer; only pushed when
+#                                         publish_rolling is true)
 #
-# Run via the Actions tab → "Run workflow", optionally overriding the
-# Wine version pin (e.g. to bump to a newer 9.x point release). Leave
-# rolling_tag empty to publish only the dated devel tag — useful for
-# trial builds that should not move the macos-latest pointer.
+# Run via the Actions tab → "Run workflow". Toggle "publish_rolling" off
+# to publish only the dated devel tag — useful for trial builds that
+# should not move the macos-latest pointer.
 
 on:
   workflow_dispatch:
@@ -25,8 +24,13 @@ on:
         description: "Debian package version pin for wine-stable (e.g. 9.0.0.0~bookworm-1)"
         required: true
         default: "9.0.0.0~bookworm-1"
+      publish_rolling:
+        description: "Also publish the rolling tag (uncheck for trial builds)"
+        type: boolean
+        required: false
+        default: true
       rolling_tag:
-        description: "Rolling tag to publish alongside the dated devel tag (leave blank to skip)"
+        description: "Rolling tag name (only used when publish_rolling is checked)"
         required: false
         default: "macos-latest"
 
@@ -46,18 +50,19 @@ jobs:
           DEVEL_TAG="devel-${DATE}-wine-${WINE_SHORT}"
           IMAGE=aanas0sayed/docker-ltspice
           # The dated devel tag is always pushed; the rolling pointer is
-          # only included when the input is non-empty. Multi-line tag
-          # output uses GITHUB_OUTPUT's heredoc form.
+          # only included when the publish_rolling toggle is true. The
+          # tag list is emitted via GITHUB_OUTPUT's heredoc form so the
+          # next step can pass it straight to docker/build-push-action.
           {
             echo "list<<EOF"
             echo "${IMAGE}:${DEVEL_TAG}"
-            if [ -n "${{ inputs.rolling_tag }}" ]; then
+            if [ "${{ inputs.publish_rolling }}" = "true" ]; then
               echo "${IMAGE}:${{ inputs.rolling_tag }}"
             fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          if [ -n "${{ inputs.rolling_tag }}" ]; then
+          if [ "${{ inputs.publish_rolling }}" = "true" ]; then
             echo "Will publish: ${IMAGE}:${DEVEL_TAG} and ${IMAGE}:${{ inputs.rolling_tag }}"
           else
             echo "Will publish: ${IMAGE}:${DEVEL_TAG} (no rolling tag)"
