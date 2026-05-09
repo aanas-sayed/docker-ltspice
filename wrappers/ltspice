@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" "$@"
+exec wine "${WINEPREFIX:-$HOME/.wine}/drive_c/Program Files/ADI/LTspice/LTspice.exe" "$@"

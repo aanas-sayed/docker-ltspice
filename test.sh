@@ -4,9 +4,15 @@
 # Usage: ./test.sh [image]
 #   image  Docker image to test (default: aanas0sayed/docker-ltspice)
 #
+# Runs the canonical hardened invocation: --user=$(id -u):$(id -g) plus
+# --cap-drop=ALL (no --cap-add=DAC_OVERRIDE). This is the supported
+# consumption pattern for the image. Verifies the produced .raw file is
+# owned by the host user, proving the image works as a non-root sandboxed
+# simulator without elevated capabilities.
+#
 # Exit codes:
-#   0  all .meas checks passed
-#   1  simulation failed or a measurement was not found in the log
+#   0  all .meas checks passed and .raw is owned by host uid
+#   1  simulation failed, a measurement was not found, or .raw uid mismatch
 
 set -euo pipefail
 
@@ -15,34 +21,50 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_DIR="$SCRIPT_DIR/test"
 NETLIST="rc_filter.net"
 LOG="${NETLIST%.net}.log"
+RAW="${NETLIST%.net}.raw"
 LOG_PATH="$TEST_DIR/$LOG"
+RAW_PATH="$TEST_DIR/$RAW"
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
+
+# stat -c works on GNU stat (Linux); -f '%u' is BSD/macOS.
+file_uid() {
+    if stat -c '%u' "$1" >/dev/null 2>&1; then
+        stat -c '%u' "$1"
+    else
+        stat -f '%u' "$1"
+    fi
+}
 
 echo "==> LTspice headless batch test"
 echo "    image  : $IMAGE"
 echo "    netlist: $TEST_DIR/$NETLIST"
+echo "    flags  : --user=${HOST_UID}:${HOST_GID} --cap-drop=ALL"
 echo ""
 
 # ── Clean up previous run artifacts ──────────────────────────────────────────
 rm -f "$TEST_DIR"/"${NETLIST%.net}".{log,raw,op.raw,db}
 
 # ── Run LTspice inside the container ─────────────────────────────────────────
-# Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim
+# Wine maps Z:\ to the Linux root, so /sim inside the container becomes Z:\sim.
 docker run --rm \
     --platform linux/amd64 \
+    --user="${HOST_UID}:${HOST_GID}" \
+    --cap-drop=ALL \
     --volume "$TEST_DIR:/sim" \
     "$IMAGE" /bin/bash -c '
 set -e
-    
+
 NETLIST_WIN="Z:\\sim\\rc_filter.net"
 
 echo "  [run]  ltspice -b \"$NETLIST_WIN\""
-timeout 120 wine "/root/.wine/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "$NETLIST_WIN" || true
+timeout 120 wine "$WINEPREFIX/drive_c/Program Files/ADI/LTspice/LTspice.exe" -b -run "$NETLIST_WIN" || true
 wineserver --wait 2>/dev/null || true
 
 echo "  [done] simulation finished"
 '
 
-# ── Check log was produced ────────────────────────────────────────────────────
+# ── Check log was produced ───────────────────────────────────────────────────
 if [[ ! -f "$LOG_PATH" ]]; then
     echo "FAIL: log file was not created at $LOG_PATH"
     exit 1
@@ -54,17 +76,11 @@ echo "------------------------------------------------------------"
 cat "$LOG_PATH"
 echo "------------------------------------------------------------"
 
-# ── Validate .meas results ────────────────────────────────────────────────────
+# ── Validate .meas results ───────────────────────────────────────────────────
 echo ""
 echo "==> Validating .meas results..."
 
 PASS=1
-
-# Extract the numeric value from a .meas log line, e.g.:
-#   vout_max: MAX(v(out))=4.96832 FROM 0 TO 0.005  →  4.96832
-meas_value() {
-    grep -i "^${1}" "$LOG_PATH" 2>/dev/null | head -n1 | grep -oE '=[0-9eE.+-]+' | head -n1 | tr -d '='
-}
 
 check_meas_range() {
     local name="$1" lo="$2" hi="$3"
@@ -87,7 +103,6 @@ check_meas_range() {
     else
         val=$(echo "$line" | grep -oE '=[0-9eE.+-]+' | head -n1 | tr -d '=')
     fi
-    # Use awk for float comparison
     if awk -v v="$val" -v lo="$lo" -v hi="$hi" 'BEGIN{exit !(v>=lo && v<=hi)}'; then
         printf "  PASS  %-14s = %s  (expected [%s, %s])\n" "$name" "$val" "$lo" "$hi"
     else
@@ -96,17 +111,28 @@ check_meas_range() {
     fi
 }
 
-# V(out) max: 5·(1−e⁻⁵) ≈ 4.966 V — accept 4.9 to 5.0
 check_meas_range "vout_max"  4.9   5.0
-# Steady-state average (last 1 ms): > 4.9 V
 check_meas_range "vout_ss"   4.9   5.0
-# τ crossing time ≈ 1 ms — accept 0.9 ms to 1.1 ms
 check_meas_range "tau_rise"  0.0009  0.0011
+
+# ── Verify .raw file is owned by the host uid (proves no DAC bypass) ────────
+if [[ ! -f "$RAW_PATH" ]]; then
+    echo "  FAIL  $RAW was not produced"
+    PASS=0
+else
+    RAW_UID=$(file_uid "$RAW_PATH")
+    if [[ "$RAW_UID" != "$HOST_UID" ]]; then
+        echo "  FAIL  $RAW uid=$RAW_UID does not match host uid $HOST_UID"
+        PASS=0
+    else
+        printf "  PASS  %-14s uid=%s (matches host)\n" "$RAW" "$RAW_UID"
+    fi
+fi
 
 echo ""
 if [[ "$PASS" -eq 1 ]]; then
     echo "==> All checks PASSED."
 else
-    echo "==> Test FAILED – one or more .meas values out of range."
+    echo "==> Test FAILED – one or more checks did not pass."
     exit 1
 fi
