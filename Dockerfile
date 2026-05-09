@@ -101,9 +101,12 @@ USER root
 RUN mv "/home/wineuser/.wine/drive_c/Program Files/ADI/LTspice" /opt/ltspice \
     && ln -s /opt/ltspice "/home/wineuser/.wine/drive_c/Program Files/ADI/LTspice" \
     && mv /home/wineuser/.wine /opt/wineprefix-template \
-    && chmod -R a+rX /opt/ltspice \
+    && find /opt/ltspice -type d -exec chmod a+rwx {} + \
+    && find /opt/ltspice -type f -exec chmod a+rw {} + \
     && find /opt/wineprefix-template -type d -exec chmod a+rwx {} + \
-    && find /opt/wineprefix-template -type f -exec chmod a+rw {} +
+    && find /opt/wineprefix-template -type f -exec chmod a+rw {} + \
+    && chmod a+rwx /home/wineuser \
+    && rm -rf /tmp/.X* /tmp/.wine-* /tmp/wine-*
 
 # ── 9. Remove build-only tools ────────────────────────────────────────────
 RUN apt-get purge -y --auto-remove wget p7zip-full unzip \
